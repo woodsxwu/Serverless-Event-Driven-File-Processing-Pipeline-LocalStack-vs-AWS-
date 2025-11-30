@@ -1,4 +1,4 @@
-.PHONY: help localstack-up localstack-down deploy-localstack deploy-aws test-localstack test-aws metrics-localstack metrics-aws clean-localstack clean-aws experiments-localstack experiments-aws experiments-aws-safe compare-experiments
+.PHONY: help localstack-up localstack-down deploy-localstack deploy-aws test-localstack test-aws clean-localstack clean-aws experiments-localstack experiments-aws experiments-aws-safe compare-experiments
 
 help:
 	@echo "Data Ingestion Pipeline - Available Commands:"
@@ -9,7 +9,6 @@ help:
 	@echo "    make deploy-localstack    - Deploy to LocalStack"
 	@echo "    make test-localstack      - Quick test LocalStack deployment"
 	@echo "    make experiments-localstack - Run all experiments (A-H)"
-	@echo "    make metrics-localstack   - Collect CloudWatch metrics (LocalStack)"
 	@echo "    make clean-localstack     - Destroy LocalStack resources"
 	@echo ""
 	@echo "  AWS (SSO/IAM Identity Center):"
@@ -17,7 +16,6 @@ help:
 	@echo "    make test-aws             - Quick test AWS deployment"
 	@echo "    make experiments-aws-safe - Run safe experiments only (B,D,H)"
 	@echo "    make experiments-aws      - Run all experiments (use with caution!)"
-	@echo "    make metrics-aws          - Collect CloudWatch metrics (AWS)"
 	@echo "    make clean-aws            - Destroy AWS resources"
 	@echo ""
 	@echo "  Comparison & Analysis:"
@@ -90,20 +88,6 @@ test-aws:
 	@echo "Testing AWS deployment..."
 	cd scripts && python3 test_pipeline.py --env aws
 	@echo "✅ Test complete!"
-
-metrics-localstack:
-	@echo "Collecting CloudWatch metrics from LocalStack..."
-	cd scripts && \
-		unset AWS_PROFILE; \
-		AWS_ACCESS_KEY_ID=test AWS_SECRET_ACCESS_KEY=test AWS_SESSION_TOKEN=test \
-		AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null \
-		python3 collect_metrics.py --env localstack --hours 1
-	@echo "✅ Metrics collected!"
-
-metrics-aws:
-	@echo "Collecting CloudWatch metrics..."
-	cd scripts && python3 collect_metrics.py --env aws --hours 1
-	@echo "✅ Metrics collected!"
 
 clean-localstack:
 	@echo "Destroying LocalStack resources..."

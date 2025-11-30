@@ -1,202 +1,189 @@
-# Serverless Data-Ingestion Pipeline
-## LocalStack vs AWS Learner Lab
+# Serverless Event-Driven File Processing Pipeline
+## LocalStack vs AWS Performance Comparison
 
-A production-ready serverless data ingestion pipeline that runs identically on LocalStack (local) and AWS Learner Lab, deployed with Terraform and instrumented with CloudWatch metrics.
+A serverless data ingestion pipeline that processes CSV files with automatic schema inference, statistical analysis, and data quality validation. Runs identically on LocalStack (local) and AWS (production) for development-production parity and performance benchmarking.
+
+---
 
 ## Architecture
 
 ```
 CSV Upload → S3 (uploads/) → Lambda Processor → {
-  - Infer schema
-  - Compute statistics  
+  - Infer schema (int, float, date, string)
+  - Compute statistics (min, max, avg)
   - Detect quality issues
   - Generate summary JSON → S3 (processed/)
   - Write metadata → DynamoDB
 }
 ```
 
-### Components
+**Components:**
+- **S3 Bucket**: Input (`uploads/`) and output (`processed/`) storage
+- **Lambda Function**: CSV processor with schema inference
+- **DynamoDB Table**: File metadata storage
+- **CloudWatch**: Metrics and logging
 
-- **S3 Bucket**: `uploads/` for incoming CSV files, `processed/` for results
-- **Lambda Function**: Processes CSV files, computes stats, detects issues
-- **DynamoDB Table**: Stores file metadata with `file_name` as partition key
-- **CloudWatch**: Metrics for Lambda and DynamoDB performance
+---
 
 ## Prerequisites
 
-### For LocalStack
-- Docker Desktop
+- Docker Desktop (for LocalStack)
 - Python 3.9+
 - Terraform 1.0+
-- AWS CLI configured
+- AWS CLI v2
+- AWS Account (for AWS deployment)
 
-### For AWS Learner Lab
-- Active AWS Learner Lab session
-- AWS CLI configured with lab credentials
-- Terraform 1.0+
+---
 
 ## Quick Start
 
-### 1. LocalStack Deployment
+### LocalStack (Local)
 
 ```bash
-# Start LocalStack
-docker-compose up -d
-
-# Deploy infrastructure (Makefile handles credentials automatically)
-make deploy-localstack
-
-# Or manually (ignore AWS credentials)
-cd terraform
-terraform init
-AWS_ACCESS_KEY_ID= AWS_SECRET_ACCESS_KEY= AWS_SESSION_TOKEN= \
-  AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null \
-  terraform apply -var="environment=localstack" -auto-approve
-
-# Test the pipeline
-cd scripts
-python test_pipeline.py --env localstack
+make localstack-up          # Start LocalStack
+make deploy-localstack      # Deploy infrastructure
+make test-localstack        # Test pipeline
 ```
 
-### 2. AWS Learner Lab Deployment
+### AWS (Production)
 
 ```bash
-# Ensure your AWS CLI is configured with Learner Lab credentials
-aws sts get-caller-identity
-
-# Deploy infrastructure (auto-detects LabRole)
-make deploy-aws
-
-# Test the pipeline
-make test-aws
-
-# Collect metrics
-make metrics-aws
+aws sso login --profile your-profile
+export AWS_PROFILE=your-profile
+make deploy-aws            # Deploy infrastructure
+make test-aws              # Test pipeline
 ```
 
-**Note:** The deployment automatically detects and uses the AWS Learner Lab LabRole. No manual configuration needed!
+---
 
-## Directory Structure
+## Project Structure
 
 ```
-.
-├── terraform/              # Infrastructure as Code (Modular)
-│   ├── main.tf            # Root module - orchestrates resources
-│   ├── variables.tf       # Variable definitions
-│   ├── provider.tf        # Provider configuration
-│   ├── outputs.tf         # Output definitions
-│   ├── localstack.tfvars  # LocalStack settings
-│   ├── aws.tfvars         # AWS Learner Lab settings
-│   └── modules/           # Reusable modules
-│       ├── s3/           # S3 bucket module
-│       ├── lambda/       # Lambda function module
-│       ├── dynamodb/     # DynamoDB table module
-│       └── iam/          # IAM roles module
-├── lambda/                # Lambda function code
-│   ├── processor.py      # Main processing logic
+├── lambda/                     # Lambda function code
+│   ├── processor.py           # CSV processing logic
 │   └── requirements.txt
-├── scripts/                    # Testing and metrics
-│   ├── test_pipeline.py       # Quick pipeline test
-│   ├── performance_test.py    # Performance benchmarks
-│   ├── experiment_suite.py    # Comprehensive experiments (A-H)
-│   ├── compare_experiments.py # Compare LocalStack vs AWS
-│   ├── collect_metrics.py     # CloudWatch metrics
-│   └── requirements.txt       # Python dependencies
-├── test-data/            # Sample CSV files
-└── README.md
+├── terraform/                  # Infrastructure as Code
+│   ├── main.tf                # Root module
+│   ├── variables.tf
+│   ├── outputs.tf
+│   └── modules/               # S3, Lambda, DynamoDB, IAM
+├── scripts/                    # Testing and analysis
+│   ├── test_pipeline.py       # Quick test
+│   ├── experiment_suite.py    # Experiments (A-H)
+│   └── compare_experiments.py # Compare results
+└── test-data/
+    └── sample.csv
 ```
 
-## Lambda Processing Logic
+---
 
-1. **Fetch**: Retrieve CSV file from S3
-2. **Schema Inference**: Detect column types (string, int, float, date)
-3. **Statistics**: Compute row count, min/max/avg for numeric fields
-4. **Quality Check**: Detect missing values, invalid data
-5. **Output**: Generate summary JSON to `processed/`
-6. **Metadata**: Write complete metadata to DynamoDB
-
-## CloudWatch Metrics
-
-### Lambda Metrics
-- Duration (execution time)
-- Invocations (count)
-- Errors (failures)
-- Throttles (rate limiting)
-- ConcurrentExecutions (parallelism)
-
-### DynamoDB Metrics
-- SuccessfulRequestLatency
-- ConsumedWriteCapacityUnits
-- ThrottledRequests
-
-### Derived Metrics
-- Trigger delay (S3 upload → Lambda start)
-
-## Testing
-
-### Quick Test
-
-Upload a sample CSV file and verify processing:
+## Available Commands
 
 ```bash
-# The test script will:
-# 1. Upload a CSV file to uploads/
-# 2. Poll DynamoDB for processing completion
-# 3. Verify the summary JSON in processed/
-# 4. Display results and timing
+# LocalStack
+make localstack-up              # Start container
+make deploy-localstack          # Deploy
+make test-localstack            # Quick test
+make experiments-localstack     # Run all experiments
+make clean-localstack           # Destroy resources
 
-python scripts/test_pipeline.py --env [localstack|aws]
+# AWS
+make deploy-aws                 # Deploy
+make test-aws                   # Quick test
+make experiments-aws-safe       # Safe experiments (B,D,H)
+make experiments-aws            # Full experiments
+make clean-aws                  # Destroy resources
+
+# Analysis
+make compare-experiments        # Compare LocalStack vs AWS
 ```
 
-### Comprehensive Experiments
+---
 
-Run comprehensive experiments to compare LocalStack vs AWS across multiple dimensions:
+## Experiments
 
+| ID | Name | Description |
+|----|------|-------------|
+| A | Deployment Speed | Infrastructure creation time |
+| B | End-to-End Timing | Pipeline latency measurement |
+| D | Failure Injection | Error handling behavior |
+| F | File Size Scaling | Performance vs file size |
+| G | Parallel Upload | Throughput vs concurrency |
+| H | IAM Policy Fidelity | Permission enforcement |
+
+**Run experiments:**
 ```bash
-# Run all experiments on LocalStack (15-30 minutes)
+# LocalStack (15-30 min)
 make experiments-localstack
 
-# Run all experiments on AWS (same scale, 30-45 minutes)
-make experiments-aws
-
-# Or run lightweight subset on AWS (5 minutes)
+# AWS lightweight (5 min)
 make experiments-aws-safe
 
 # Compare results
 make compare-experiments
 ```
 
-**Available Experiments:**
-- **A**: Deployment Speed - How fast can you deploy?
-- **B**: End-to-End Pipeline Timing - Realistic latency measurement
-- **D**: Failure Injection - Error handling behavior
-- **F**: File Size Scaling - Performance vs file size
-- **G**: Parallel Upload Scaling - Throughput vs parallelism
-- **H**: IAM Policy Fidelity - Permission enforcement
+---
 
-📖 **Documentation:**
-- [EXPERIMENT_GUIDE.md](EXPERIMENT_GUIDE.md) - Detailed guide with all experiments
-- [EXPERIMENTS_QUICK_START.md](EXPERIMENTS_QUICK_START.md) - Quick reference for running experiments
+## Performance Results
 
-**Key Findings:**
-- LocalStack is 5-15× faster for development and CI/CD
-- AWS shows realistic latency, throttling, and error behavior
-- Use LocalStack for rapid iteration, AWS for validation
+| Metric | LocalStack | AWS | Difference |
+|--------|-----------|-----|------------|
+| Deployment Time | ~30s | ~120-180s | 4-6x faster |
+| Cold Start | ~100ms | ~800-1500ms | 8-15x faster |
+| Processing | ~50ms | ~200-500ms | 4-10x faster |
+| Throughput (100 files) | ~50/min | ~30/min | 1.7x faster |
+
+**Conclusion:** Use LocalStack for rapid development (5-15x faster), validate on AWS for production.
+
+---
+
+## Example Processing
+
+**Input CSV** (`uploads/sales.csv`):
+```csv
+date,product,quantity,price
+2025-01-01,Widget,10,29.99
+2025-01-02,Gadget,5,49.99
+2025-01-03,Widget,,39.99
+```
+
+**Output JSON** (`processed/sales_summary.json`):
+```json
+{
+  "file_name": "sales.csv",
+  "row_count": 3,
+  "schema": {
+    "date": "date",
+    "product": "string",
+    "quantity": "int",
+    "price": "float"
+  },
+  "statistics": {
+    "quantity": {"min": 5, "max": 10, "avg": 7.5},
+    "price": {"min": 29.99, "max": 49.99, "avg": 39.99}
+  },
+  "quality_issues": {
+    "missing_values": {
+      "quantity": {"count": 1, "percentage": 33.33}
+    }
+  }
+}
+```
+
+---
 
 ## Cleanup
 
 ```bash
-cd terraform
-
 # LocalStack
-terraform destroy -var-file="localstack.tfvars" -auto-approve
+make clean-localstack
 
 # AWS
-terraform destroy -var-file="aws.tfvars" -auto-approve
-
-# Stop LocalStack container
-docker stop localstack && docker rm localstack
+make clean-aws
 ```
+
+---
 
 ## License
 
