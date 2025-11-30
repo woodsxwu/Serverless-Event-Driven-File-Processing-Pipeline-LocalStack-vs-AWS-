@@ -1,0 +1,12 @@
+name,age,salary,join_date,department
+Alice Johnson,30,75000.50,2022-01-15,Engineering
+Bob Smith,25,65000.00,2022-03-20,Marketing
+Charlie Brown,35,85000.75,2021-11-10,Engineering
+Diana Prince,28,70000.00,2022-05-01,Sales
+Eve Williams,32,80000.25,2021-09-15,Engineering
+Frank Miller,29,,2022-02-10,Marketing
+Grace Lee,31,77000.50,invalid_date,Sales
+Henry Davis,invalid,72000.00,2022-04-05,Engineering
+Ivan Rodriguez,27,68000.00,2022-06-15,Marketing
+Julia Chen,33,82000.00,2021-12-01,Engineering
+

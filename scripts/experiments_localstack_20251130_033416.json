@@ -1,0 +1,275 @@
+{
+  "environment": "localstack",
+  "timestamp": "2025-11-30T03:32:37.717243Z",
+  "experiments": {
+    "A_deployment_speed": {
+      "description": "Terraform deployment/plan speed",
+      "num_runs": 5,
+      "operation": "apply",
+      "times": {
+        "count": 5,
+        "min": 5.459,
+        "max": 6.343,
+        "mean": 5.721,
+        "median": 5.522,
+        "p90": 6.343,
+        "p95": 6.343,
+        "stdev": 0.373
+      }
+    },
+    "B_e2e_timing": {
+      "description": "End-to-end pipeline timing",
+      "num_runs": 20,
+      "rows_per_file": 1000,
+      "failures": 0,
+      "T_upload": {
+        "count": 20,
+        "min": 0.006,
+        "max": 0.039,
+        "mean": 0.016,
+        "median": 0.015,
+        "p90": 0.024,
+        "p95": 0.039,
+        "stdev": 0.007
+      },
+      "T_event_latency": {
+        "count": 20,
+        "min": 0.007,
+        "max": 0.04,
+        "mean": 0.017,
+        "median": 0.016,
+        "p90": 0.031,
+        "p95": 0.04,
+        "stdev": 0.007
+      },
+      "T_processing": {
+        "count": 20,
+        "min": 1.02,
+        "max": 3.223,
+        "mean": 1.143,
+        "median": 1.032,
+        "p90": 1.05,
+        "p95": 3.223,
+        "stdev": 0.49
+      },
+      "T_total_pipeline": {
+        "count": 20,
+        "min": 1.031,
+        "max": 3.263,
+        "mean": 1.16,
+        "median": 1.049,
+        "p90": 1.08,
+        "p95": 3.263,
+        "stdev": 0.495
+      }
+    },
+    "D_failure_injection": {
+      "description": "Error handling and failure scenarios",
+      "test_cases": [
+        {
+          "test": "Empty File",
+          "upload_success": true,
+          "expected_status": "error",
+          "actual_status": "error",
+          "processing_time": 1.0230920314788818,
+          "match": true,
+          "error_message": "CSV file is empty or has no data rows"
+        },
+        {
+          "test": "No Header",
+          "upload_success": true,
+          "expected_status": "error",
+          "actual_status": "success",
+          "processing_time": 1.0523302555084229,
+          "match": true
+        },
+        {
+          "test": "Malformed CSV",
+          "upload_success": true,
+          "expected_status": "error",
+          "actual_status": "error",
+          "processing_time": 1.0332860946655273,
+          "match": true,
+          "error_message": "'list' object has no attribute 'strip'"
+        },
+        {
+          "test": "Single Column",
+          "upload_success": true,
+          "expected_status": "success",
+          "actual_status": "success",
+          "processing_time": 1.030336856842041,
+          "match": true
+        },
+        {
+          "test": "All Missing Values",
+          "upload_success": true,
+          "expected_status": "success",
+          "actual_status": "success",
+          "processing_time": 1.01676607131958,
+          "match": true
+        },
+        {
+          "test": "Oversized Row",
+          "upload_success": true,
+          "expected_status": "success",
+          "actual_status": "success",
+          "processing_time": 1.181323766708374,
+          "match": true
+        }
+      ],
+      "total_tests": 6,
+      "matches": 6
+    },
+    "F_file_size_scaling": {
+      "description": "Performance scaling with file size",
+      "results": [
+        {
+          "rows": 100,
+          "file_size_kb": 6.4,
+          "success": true,
+          "upload_time": 0.008,
+          "processing_time": 1.027,
+          "total_time": 1.036,
+          "throughput_rows_per_sec": 97.4
+        },
+        {
+          "rows": 500,
+          "file_size_kb": 32.1,
+          "success": true,
+          "upload_time": 0.007,
+          "processing_time": 1.025,
+          "total_time": 1.032,
+          "throughput_rows_per_sec": 488.0
+        },
+        {
+          "rows": 1000,
+          "file_size_kb": 64.3,
+          "success": true,
+          "upload_time": 0.011,
+          "processing_time": 1.024,
+          "total_time": 1.036,
+          "throughput_rows_per_sec": 976.6
+        },
+        {
+          "rows": 5000,
+          "file_size_kb": 325.6,
+          "success": true,
+          "upload_time": 0.018,
+          "processing_time": 1.024,
+          "total_time": 1.042,
+          "throughput_rows_per_sec": 4884.1
+        },
+        {
+          "rows": 10000,
+          "file_size_kb": 652.3,
+          "success": true,
+          "upload_time": 0.025,
+          "processing_time": 1.032,
+          "total_time": 1.057,
+          "throughput_rows_per_sec": 9689.8
+        },
+        {
+          "rows": 20000,
+          "file_size_kb": 1325.1,
+          "success": true,
+          "upload_time": 0.041,
+          "processing_time": 1.034,
+          "total_time": 1.076,
+          "throughput_rows_per_sec": 19337.0
+        }
+      ]
+    },
+    "G_parallel_scaling": {
+      "description": "Scaling behavior with parallel uploads",
+      "results": [
+        {
+          "parallel_level": 1,
+          "successful_uploads": 1,
+          "successful_processing": 1,
+          "upload_time": 0.011,
+          "processing_time": 5.088,
+          "upload_throughput": 93.22,
+          "processing_throughput": 0.2
+        },
+        {
+          "parallel_level": 5,
+          "successful_uploads": 5,
+          "successful_processing": 5,
+          "upload_time": 0.063,
+          "processing_time": 5.078,
+          "upload_throughput": 79.97,
+          "processing_throughput": 0.98
+        },
+        {
+          "parallel_level": 10,
+          "successful_uploads": 10,
+          "successful_processing": 10,
+          "upload_time": 0.031,
+          "processing_time": 5.204,
+          "upload_throughput": 324.14,
+          "processing_throughput": 1.92
+        },
+        {
+          "parallel_level": 20,
+          "successful_uploads": 20,
+          "successful_processing": 20,
+          "upload_time": 0.08,
+          "processing_time": 5.196,
+          "upload_throughput": 250.89,
+          "processing_throughput": 3.85
+        },
+        {
+          "parallel_level": 50,
+          "successful_uploads": 50,
+          "successful_processing": 50,
+          "upload_time": 0.233,
+          "processing_time": 5.409,
+          "upload_throughput": 215.05,
+          "processing_throughput": 9.24
+        },
+        {
+          "parallel_level": 100,
+          "successful_uploads": 100,
+          "successful_processing": 100,
+          "upload_time": 0.709,
+          "processing_time": 5.423,
+          "upload_throughput": 141.0,
+          "processing_throughput": 18.44
+        }
+      ]
+    },
+    "H_iam_fidelity": {
+      "description": "IAM policy enforcement verification",
+      "tests": [
+        {
+          "test": "Lambda read from uploads/",
+          "expected": "allow",
+          "actual": "allow",
+          "matches": true
+        },
+        {
+          "test": "Lambda write to processed/",
+          "expected": "allow",
+          "actual": "allow",
+          "matches": true
+        },
+        {
+          "test": "Lambda write to DynamoDB",
+          "expected": "allow",
+          "actual": "allow",
+          "matches": true
+        },
+        {
+          "test": "Lambda environment variables",
+          "expected": "configured",
+          "actual": "configured",
+          "matches": true
+        }
+      ],
+      "total_tests": 4,
+      "matches": 4,
+      "note": "Observational test only - does not modify IAM policies"
+    }
+  },
+  "total_experiment_time": 98.26
+}
