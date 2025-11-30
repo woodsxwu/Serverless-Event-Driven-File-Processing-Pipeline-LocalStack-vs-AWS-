@@ -1,4 +1,5 @@
 # IAM Module - Lambda execution role and policies
+# When using AWS Learner Lab, use the existing LabRole instead of creating new roles
 
 # IAM Role for Lambda
 resource "aws_iam_role" "lambda_role" {
@@ -24,7 +25,8 @@ resource "aws_iam_role" "lambda_role" {
   }
 }
 
-# IAM Policy for Lambda
+# IAM Policy for Lambda - Only create if we created the role
+# AWS Learner Lab LabRole already has necessary permissions
 resource "aws_iam_role_policy" "lambda_policy" {
   count = var.use_existing_role ? 0 : 1
   name  = "${var.project_name}-lambda-policy"
@@ -69,7 +71,7 @@ resource "aws_iam_role_policy" "lambda_policy" {
   })
 }
 
-# Attach AWS managed policy for basic Lambda execution
+# Attach AWS managed policy for basic Lambda execution - Only if we created the role
 resource "aws_iam_role_policy_attachment" "lambda_basic" {
   count      = var.use_existing_role ? 0 : 1
   role       = aws_iam_role.lambda_role[0].name

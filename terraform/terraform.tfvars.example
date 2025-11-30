@@ -10,6 +10,9 @@ environment = "localstack"  # or "aws"
 # lambda_timeout = 600
 # lambda_memory  = 1024
 
-# For AWS Learner Lab deployments only
-# lab_role_arn = "arn:aws:iam::123456789012:role/LabRole"
+# For AWS deployments using SSO/IAM Identity Center:
+# 1. Configure your SSO profile: aws configure sso
+# 2. Login before deployment: aws sso login --profile <your-profile>
+# 3. Set profile: export AWS_PROFILE=<your-profile>
+# Terraform will automatically create necessary IAM roles
 

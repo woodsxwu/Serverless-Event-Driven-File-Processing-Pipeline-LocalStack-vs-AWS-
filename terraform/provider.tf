@@ -20,7 +20,12 @@ terraform {
 provider "aws" {
   region = var.aws_region
 
-  # LocalStack uses dummy credentials, AWS uses real credentials from environment
+  # For AWS SSO/IAM Identity Center:
+  # Authenticate using: aws sso login --profile <your-profile>
+  # Or set AWS_PROFILE environment variable
+  # Credentials will be automatically loaded from your SSO session
+  
+  # LocalStack uses dummy credentials
   access_key = local.use_localstack ? "test" : null
   secret_key = local.use_localstack ? "test" : null
   token      = local.use_localstack ? "test" : null

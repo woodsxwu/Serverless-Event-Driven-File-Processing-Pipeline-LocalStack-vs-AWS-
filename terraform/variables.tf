@@ -18,7 +18,7 @@ variable "aws_region" {
 }
 
 variable "lab_role_arn" {
-  description = "AWS Learner Lab role ARN (only for AWS deployments, leave empty to create new role)"
+  description = "DEPRECATED: For AWS SSO deployments, leave empty to create new IAM roles automatically"
   type        = string
   default     = ""
 }

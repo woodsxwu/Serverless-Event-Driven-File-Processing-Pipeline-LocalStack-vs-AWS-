@@ -2,14 +2,9 @@
 # Uses modular structure for better organization
 # Provider configuration is in provider.tf
 
-# Random ID for unique bucket naming
-resource "random_id" "bucket_suffix" {
-  byte_length = 4
-}
-
 # Local variables
 locals {
-  bucket_name = "${var.project_name}-${var.environment}-${random_id.bucket_suffix.hex}"
+  bucket_name = "${var.project_name}-${var.environment}"
 }
 
 # Step 1: Create DynamoDB table

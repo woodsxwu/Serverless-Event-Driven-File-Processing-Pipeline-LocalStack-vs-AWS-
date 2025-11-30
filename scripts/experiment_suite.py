@@ -60,7 +60,13 @@ class ExperimentSuite:
         }
         
         self.s3_client, self.dynamodb, self.iam_client, self.lambda_client = self._create_clients()
-        self.bucket_name, self.table_name, self.lambda_name = self._get_terraform_outputs()
+        
+        # Use predictable resource names instead of Terraform outputs
+        # This allows experiments to run even without Terraform state
+        project_name = "data-ingestion-pipeline"
+        self.bucket_name = f"{project_name}-{env}"
+        self.table_name = f"{project_name}-file-metadata-{env}"  # Match Terraform naming
+        self.lambda_name = f"{project_name}-processor-{env}"
         
         print(f"\n{'='*70}")
         print(f"🧪 EXPERIMENT SUITE - {env.upper()}")
@@ -100,32 +106,21 @@ class ExperimentSuite:
                 aws_secret_access_key='test'
             )
         else:
-            s3 = boto3.client('s3', region_name='us-west-2')
-            dynamodb = boto3.resource('dynamodb', region_name='us-west-2')
-            iam = boto3.client('iam', region_name='us-west-2')
-            lambda_client = boto3.client('lambda', region_name='us-west-2')
+            # Use the current AWS profile from environment (supports SSO)
+            # Don't override AWS_PROFILE - use whatever is already set
+            current_profile = os.environ.get('AWS_PROFILE')
+            if current_profile:
+                session = boto3.Session(profile_name=current_profile, region_name='us-west-2')
+            else:
+                # Fall back to default if no profile is set
+                session = boto3.Session(region_name='us-west-2')
+            
+            s3 = session.client('s3')
+            dynamodb = session.resource('dynamodb')
+            iam = session.client('iam')
+            lambda_client = session.client('lambda')
         
         return s3, dynamodb, iam, lambda_client
-    
-    def _get_terraform_outputs(self):
-        """Get Terraform outputs"""
-        try:
-            result = subprocess.run(
-                ['terraform', 'output', '-json'],
-                cwd='../terraform',
-                capture_output=True,
-                text=True,
-                check=True
-            )
-            outputs = json.loads(result.stdout)
-            return (
-                outputs['s3_bucket_name']['value'],
-                outputs['dynamodb_table_name']['value'],
-                outputs['lambda_function_name']['value']
-            )
-        except Exception as e:
-            print(f"❌ Error getting Terraform outputs: {e}")
-            sys.exit(1)
     
     def _create_csv_content(self, rows: int, file_id: int) -> str:
         """Create CSV content with specified number of rows"""
@@ -206,68 +201,168 @@ class ExperimentSuite:
         """
         Experiment A: Measure Terraform deployment speed
         
-        Note: This runs terraform apply multiple times. For safety:
-        - Only measures plan time in production
-        - Full apply only in LocalStack
+        Runs terraform destroy + apply to measure actual deployment time.
+        Uses 5 runs for both LocalStack and AWS for fair comparison.
         """
         print(f"\n{'='*70}")
         print(f"🧪 EXPERIMENT A: Deployment Speed")
         print(f"{'='*70}\n")
         
+        # Prompt for AWS due to destructive nature
         if self.env == 'aws':
-            print("⚠️  For AWS, only measuring terraform plan time (not apply)")
-            print("   Full deployment would be disruptive in production.")
+            print(f"⚠️  Running terraform destroy + apply {num_runs} times on AWS")
+            print("   This will tear down and rebuild your infrastructure each time.")
+            response = input("   Continue? (y/n): ")
+            if response.lower() != 'y':
+                print("   Skipping experiment A")
+                self.results['experiments']['A_deployment_speed'] = {
+                    'description': 'Terraform deployment speed',
+                    'skipped': True,
+                    'reason': 'User declined to run terraform destroy/apply on AWS'
+                }
+                return
+        
+        # Ensure infrastructure is deployed first for baseline
+        print(f"   Ensuring infrastructure is deployed for baseline...")
+        if self.env == 'localstack':
+            env_vars = {
+                'AWS_ACCESS_KEY_ID': 'test',
+                'AWS_SECRET_ACCESS_KEY': 'test',
+                'AWS_SESSION_TOKEN': 'test'
+            }
+            subprocess.run(
+                ['terraform', 'apply', f'-var=environment={self.env}', '-auto-approve'],
+                cwd='../terraform',
+                capture_output=True,
+                env={**os.environ, **env_vars}
+            )
+        else:
+            subprocess.run(
+                ['terraform', 'apply', f'-var=environment={self.env}', '-auto-approve'],
+                cwd='../terraform',
+                capture_output=True
+            )
+        print(f"   ✅ Baseline infrastructure ready\n")
         
         times = []
         
         for i in range(num_runs):
-            print(f"   Run {i+1}/{num_runs}...")
-            start_time = time.time()
+            print(f"\n   Run {i+1}/{num_runs}...")
             
+            # Step 1: Destroy
+            print(f"      Destroying infrastructure...")
             try:
+                # For LocalStack, need to actually clear persistent data
                 if self.env == 'localstack':
-                    # Full apply for LocalStack
-                    result = subprocess.run(
-                        ['terraform', 'apply', '-auto-approve'],
+                    # Run terraform destroy
+                    env_vars = {
+                        'AWS_ACCESS_KEY_ID': 'test',
+                        'AWS_SECRET_ACCESS_KEY': 'test',
+                        'AWS_SESSION_TOKEN': 'test'
+                    }
+                    destroy_result = subprocess.run(
+                        ['terraform', 'destroy', f'-var=environment={self.env}', '-auto-approve'],
+                        cwd='../terraform',
+                        capture_output=True,
+                        text=True,
+                        timeout=300,
+                        env={**os.environ, **env_vars}
+                    )
+                    
+                    if destroy_result.returncode != 0:
+                        print(f"      ❌ Destroy failed: {destroy_result.stderr[:200]}")
+                        continue
+                    
+                    # Clear LocalStack persistent data to truly destroy resources
+                    print(f"      Clearing LocalStack persistent data...")
+                    subprocess.run(['rm', '-rf', '../localstack-data/*'], shell=True)
+                    
+                    # Restart LocalStack container to get fresh state
+                    subprocess.run(['docker-compose', 'restart'], cwd='..', capture_output=True)
+                    time.sleep(5)  # Wait for LocalStack to be ready
+                else:
+                    # For AWS, standard destroy
+                    destroy_result = subprocess.run(
+                        ['terraform', 'destroy', f'-var=environment={self.env}', '-auto-approve'],
                         cwd='../terraform',
                         capture_output=True,
                         text=True,
                         timeout=300
                     )
-                else:
-                    # Only plan for AWS (safer)
-                    result = subprocess.run(
-                        ['terraform', 'plan'],
+                    
+                    if destroy_result.returncode != 0:
+                        print(f"      ❌ Destroy failed: {destroy_result.stderr[:200]}")
+                        continue
+                    
+                    # Wait longer for AWS to clean up - DynamoDB tables take time to fully delete
+                    print(f"      Waiting 30s for AWS cleanup (DynamoDB table deletion)...")
+                    time.sleep(30)
+                
+                print(f"      ✅ Destroyed successfully")
+            
+            except subprocess.TimeoutExpired:
+                print(f"      ❌ Destroy timeout")
+                continue
+            except Exception as e:
+                print(f"      ❌ Destroy error: {e}")
+                continue
+            
+            # Step 2: Apply and measure time
+            print(f"      Applying infrastructure...")
+            start_time = time.time()
+            
+            try:
+                if self.env == 'localstack':
+                    env_vars = {
+                        'AWS_ACCESS_KEY_ID': 'test',
+                        'AWS_SECRET_ACCESS_KEY': 'test',
+                        'AWS_SESSION_TOKEN': 'test'
+                    }
+                    apply_result = subprocess.run(
+                        ['terraform', 'apply', f'-var=environment={self.env}', '-auto-approve'],
                         cwd='../terraform',
                         capture_output=True,
                         text=True,
-                        timeout=180
+                        timeout=300,
+                        env={**os.environ, **env_vars}
+                    )
+                else:
+                    apply_result = subprocess.run(
+                        ['terraform', 'apply', f'-var=environment={self.env}', '-auto-approve'],
+                        cwd='../terraform',
+                        capture_output=True,
+                        text=True,
+                        timeout=300
                     )
                 
                 elapsed = time.time() - start_time
                 
-                if result.returncode == 0:
+                if apply_result.returncode == 0:
                     times.append(elapsed)
-                    print(f"      ✅ Time: {elapsed:.2f}s")
+                    print(f"      ✅ Applied in {elapsed:.2f}s")
                 else:
-                    print(f"      ❌ Failed: {result.stderr[:200]}")
+                    print(f"      ❌ Apply failed: {apply_result.stderr[:200]}")
             
             except subprocess.TimeoutExpired:
-                print(f"      ❌ Timeout")
+                print(f"      ❌ Apply timeout")
             except Exception as e:
-                print(f"      ❌ Error: {e}")
+                print(f"      ❌ Apply error: {e}")
         
         self.results['experiments']['A_deployment_speed'] = {
-            'description': 'Terraform deployment/plan speed',
+            'description': 'Terraform deployment speed (destroy + apply)',
             'num_runs': num_runs,
-            'operation': 'apply' if self.env == 'localstack' else 'plan',
+            'operation': 'destroy + apply',
             'times': self._calculate_stats(times)
         }
         
         if times:
             print(f"\n📊 Results:")
+            print(f"   Successful runs: {len(times)}/{num_runs}")
             print(f"   Mean: {statistics.mean(times):.2f}s")
-            print(f"   P95:  {sorted(times)[int(len(times)*0.95)]:.2f}s")
+            print(f"   Median: {statistics.median(times):.2f}s")
+            print(f"   P95:  {sorted(times)[int(len(times)*0.95)]:.2f}s" if len(times) > 1 else f"   P95:  {times[0]:.2f}s")
+        else:
+            print(f"\n❌ No successful runs")
     
     # ========================================================================
     # EXPERIMENT B: End-to-End Pipeline Timing

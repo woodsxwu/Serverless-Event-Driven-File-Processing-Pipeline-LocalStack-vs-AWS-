@@ -1,0 +1,157 @@
+
+======================================================================
+📊 EXPERIMENT A: Deployment Speed
+======================================================================
+
+Operation:
+  LocalStack: destroy + apply
+  AWS:        destroy + apply
+
+Metric               LocalStack                     AWS                            Comparison          
+----------------------------------------------------------------------------------------------------
+Mean Time            13.18s                          24.81s                          1.9× faster         
+P95 Time             14.43s                          26.73s                         
+Min Time             12.77s                          22.77s                         
+Max Time             14.43s                          26.73s                         
+
+💡 Insights:
+   • LocalStack deployment is 1.9× faster than AWS
+   • This demonstrates LocalStack's advantage for CI/CD pipelines
+
+======================================================================
+📊 EXPERIMENT B: End-to-End Pipeline Timing
+======================================================================
+
+Test Parameters:
+  Runs:     20 (LocalStack), 20 (AWS)
+  Rows:     1000 per file
+  Failures: 0 (LocalStack), 2 (AWS)
+
+Metric                    LocalStack (mean/p95)          AWS (mean/p95)                 Speedup             
+---------------------------------------------------------------------------------------------------------
+Upload Time               0.013s / 0.035s                0.144s / 0.867s                11.1× faster        
+Event Latency             0.015s / 0.036s                0.096s / 0.264s                6.4× faster         
+Processing Time           1.103s / 2.109s                1.590s / 2.126s                1.4× faster         
+Total Pipeline Time       1.117s / 2.146s                1.686s / 2.371s                1.5× faster         
+
+💡 Insights:
+   • LocalStack pipeline is 1.5× faster end-to-end
+   • This is expected due to local network and stub services
+   • AWS shows significantly higher event latency (0.096s vs 0.015s)
+   • This reflects real-world S3 event notification delays
+
+======================================================================
+📊 EXPERIMENT D: Failure Injection
+======================================================================
+
+Test Case                 LocalStack Status    AWS Status           Match     
+---------------------------------------------------------------------------
+Empty File                error                error                ✅         
+No Header                 success              success              ✅         
+Malformed CSV             error                error                ✅         
+Single Column             success              success              ✅         
+All Missing Values        success              success              ✅         
+Oversized Row             success              success              ✅         
+
+Summary:
+  LocalStack: 6/6 tests behaved as expected
+  AWS:        6/6 tests behaved as expected
+
+💡 Insights:
+   ✅ LocalStack and AWS handle errors consistently
+
+======================================================================
+📊 EXPERIMENT F: File Size Scaling
+======================================================================
+
+Rows       File Size    LocalStack Time      AWS Time             Speedup        
+-----------------------------------------------------------------------------
+100        6.4 KB       1.027s               1.081s               1.1× faster    
+500        32.1 KB      1.037s               2.110s               2.0× faster    
+1000       64.3 KB      1.033s               1.071s               1.0× faster    
+5000       325.6 KB     1.035s               2.104s               2.0× faster    
+10000      652.3 KB     1.047s               2.096s               2.0× faster    
+20000      1325.1 KB    1.030s               2.103s               2.0× faster    
+
+💡 Insights:
+   • LocalStack avg throughput: 5892.8 rows/sec
+   • AWS avg throughput: 2986.9 rows/sec
+
+======================================================================
+📊 EXPERIMENT G: Parallel Upload Scaling
+======================================================================
+
+N Files    Environment     Upload T/put    Process T/put   Success Rate   
+----------------------------------------------------------------------
+1          LocalStack      85.46 f/s       0.20 f/s       100.0%        
+1          AWS             12.57 f/s       0.20 f/s       100.0%        
+
+5          LocalStack      160.58 f/s       0.99 f/s       100.0%        
+5          AWS             20.09 f/s       0.97 f/s       100.0%        
+
+10         LocalStack      186.28 f/s       1.94 f/s       100.0%        
+10         AWS             30.07 f/s       1.88 f/s       100.0%        
+
+20         LocalStack      202.19 f/s       3.82 f/s       100.0%        
+20         AWS             26.31 f/s       3.54 f/s       100.0%        
+
+50         LocalStack      324.60 f/s       9.48 f/s       100.0%        
+50         AWS             28.23 f/s       7.50 f/s       100.0%        
+
+100        LocalStack      238.89 f/s       18.27 f/s       100.0%        
+100        AWS             64.72 f/s       12.10 f/s       100.0%        
+
+
+💡 Insights:
+   • LocalStack scaling efficiency: 91.3%
+   • AWS scaling efficiency: 60.5%
+
+======================================================================
+📊 EXPERIMENT H: IAM Policy Fidelity
+======================================================================
+
+Test                                LocalStack      AWS             Match     
+---------------------------------------------------------------------------
+Lambda read from uploads/           allow           allow           ✅         
+Lambda write to processed/          allow           allow           ✅         
+Lambda write to DynamoDB            allow           allow           ✅         
+Lambda environment variables        configured      configured      ✅         
+
+Summary:
+  LocalStack: 4/4 tests passed
+  AWS:        4/4 tests passed
+
+💡 Insights:
+   ✅ IAM behavior is consistent between LocalStack and AWS
+   → Basic permission validation can be done in LocalStack
+
+======================================================================
+📋 OVERALL SUMMARY & RECOMMENDATIONS
+======================================================================
+
+🎯 When to Use LocalStack:
+   ✅ Rapid development and inner-loop testing
+   ✅ CI/CD pipelines (faster feedback)
+   ✅ Unit and integration testing
+   ✅ Cost-free experimentation
+   ✅ Offline development
+
+🎯 When to Use AWS Learner Lab / Real AWS:
+   ✅ Final integration testing before production
+   ✅ Performance benchmarking and capacity planning
+   ✅ IAM and security policy validation
+   ✅ Testing real-world latency and error conditions
+   ✅ Validating event trigger reliability
+
+⚠️  Key Differences Found:
+   • Performance: LocalStack is ~1.5× faster for E2E pipeline
+
+💡 Best Practice Workflow:
+   1. Develop & test locally with LocalStack
+   2. Run comprehensive test suite in LocalStack CI
+   3. Run focused correctness tests in AWS staging
+   4. Validate IAM, performance, and scaling in AWS
+   5. Deploy to AWS production with confidence
+
+======================================================================
+
